@@ -14,7 +14,7 @@ class DataRecorder(Node):
         self.odom_data = []
         self.create_subscription(Pose,     '/real_pose', self.cb_real, 10)
         self.create_subscription(Odometry, '/odom',      self.cb_odom, 10)
-        # Asegura guardar al morir el nodo
+        # Aseguramos guardar al morir el nodo
         atexit.register(self.save_csvs)
 
     def cb_real(self, msg: Pose):

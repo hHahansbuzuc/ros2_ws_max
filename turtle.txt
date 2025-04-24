@@ -1,0 +1,3 @@
+--Iniciar el robot kobuki en el lab:
+ ros2 run kinect_ros2 kinect_ros2_node /corre nuestro kinect
+ros2 launch kobuki_node kobuki_node-launch.py /correw los recursos del turtlebot, tomarlo usando ros2 pkg prefix <>

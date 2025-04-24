@@ -24,4 +24,11 @@
     name="data_recorder"
     output="screen"/>
 
+  <!-- 5) Nodo de control -->
+  <node
+    pkg= "lab1"
+    exec="teleop_nav.py"
+    name="teleop_nav"
+    output="screen">
+    
 </launch>

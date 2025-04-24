@@ -15,10 +15,6 @@ class DeadReckoningNav(Node):
         self.create_subscription(PoseArray, '/goal_list', self.accion_mover_cb, 10)
         self.v_lin = 0.2
         self.v_ang = 1.0
-
-        # listas para trayectoria
-        self.real_data = []
-        self.odom_data = []
         time.sleep(3)
 
     def cb_real(self, msg: Pose):
@@ -43,7 +39,7 @@ class DeadReckoningNav(Node):
                 time.sleep(0.02)
             self.pub.publish(Twist())
             rclpy.spin_once(self, timeout_sec=0)
-        # al terminar todos los cmds, detén el robot
+        # al terminar todos los cmds, detiene el robot
         self.pub.publish(Twist())
         
     def normalize_angle(self, a): #normaliza el angulo entre -pi y pi para no rotar infinitamente
