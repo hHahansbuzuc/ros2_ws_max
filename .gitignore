@@ -1,0 +1,13 @@
+# ROS 2 build artifacts
+/build/
+/install/
+/log/
+/.ros/
+
+# Python env
+__pycache__/
+/*.pyc
+
+# VSCode, PyCharm, etc
+.vscode/
+/.idea/
