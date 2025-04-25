@@ -1,38 +1,78 @@
-#!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Vector3
-from cv_bridge import CvBridge
 import numpy as np
+from cv_bridge import CvBridge
+import cv2
 
-class ObstacleDetector(Node):
-    def __init__(self):
-        super().__init__('obstacle_detector')
+
+
+
+NODE_NAME:str = "obstacle_detector"
+
+
+
+class Obstacle_detector(Node): 
+
+    def __init__( self ):
+
+        super().__init__(NODE_NAME)
         self.bridge = CvBridge()
-        self.declare_parameter('distance_threshold', 0.5)
-        self.threshold = self.get_parameter('distance_threshold').value
-        self.create_subscription(Image, '/camera/depth/image_raw',
-                                 self.cb_image, 10)
-        self.pub = self.create_publisher(Vector3, '/occupancy_state', 10)
+        self.image_raw_subscription = self.create_subscription(
+            Image,
+            '/camera/depth/image_raw',
+            self.image_callback,
+            10
+        )
+        
+        self.occupancy_state_publisher = self.create_publisher(
+            Vector3,
+            '/occupancy_state',
+            10
+        )
+    
+    def image_callback(self, msg: Image):
+        # 1) convertir a arreglo (height, width)
+        depth = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+        depth_array = np.array(depth, copy=False).astype(np.float32)
 
-    def cb_image(self, msg):
-        depth = self.bridge.imgmsg_to_cv2(msg, '32FC1')
-        thirds = np.hsplit(depth, 3)
-        state = [0,0,0]
-        for i, region in enumerate(thirds):
-            mask = np.isfinite(region)
-            if np.any((region[mask]>0)&(region[mask]<=self.threshold)):
-                state[i]=1
-        vec = Vector3(x=state[0], y=state[1], z=state[2])
-        self.pub.publish(vec)
+        # 2) dimensiones y “tercios”
+        h, w    = depth_array.shape
+        third   = w // 3
+        left    = depth_array[:,       :third]
+        center  = depth_array[:, third:2*third]
+        right   = depth_array[:, 2*third:]
 
-def main():
+        # 3) maskear ceros => NaN
+        for region in (left, center, right):
+            region[region == 0] = np.nan
+
+        # 4) distancia mínima en cada región
+        dist_left   = float(np.nanmin(left))
+        dist_center = float(np.nanmin(center))
+        dist_right  = float(np.nanmin(right))
+
+        # 5) log y publicación
+        self.get_logger().info(
+            f'Distancias → Izq: {dist_left:.2f} m | '
+            f'Cent: {dist_center:.2f} m | Der: {dist_right:.2f} m'
+        )
+
+        occ = Vector3()
+        occ.x = dist_left
+        occ.y = dist_center
+        occ.z = dist_right
+        self.occupancy_state_publisher.publish(occ)
+        
+
+if __name__ == '__main__':
     rclpy.init()
-    node = ObstacleDetector()
-    try: rclpy.spin(node)
-    finally:
-        node.destroy_node(); rclpy.shutdown()
+  
+    detector_node = Obstacle_detector()
+    rclpy.spin( detector_node )
+    
+    detector_node.destroy_node()
+    
+    rclpy.shutdown()
 
-if __name__=='__main__':
-    main()

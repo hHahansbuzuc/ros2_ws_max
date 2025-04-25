@@ -2,6 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, PoseArray, Pose
+from geometry_msgs.msg import Vector3
 from nav_msgs.msg import Odometry
 import math, time
 import csv
@@ -13,9 +14,16 @@ class DeadReckoningNav(Node):
         self.pose = Pose()
         self.pub = self.create_publisher(Twist, '/cmd_vel_mux/cmd_vel', 10)
         self.create_subscription(PoseArray, '/goal_list', self.accion_mover_cb, 10)
+        
+        self.occupancy = Vector3(x=0.0, y=0.0, z=0.0)
+        self.create_subscription(Vector3, '/occupancy_state', self.cb_occupancy, 10)
         self.v_lin = 0.2
         self.v_ang = 1.0
         time.sleep(3)
+        
+    def cb_occupancy(self, msg: Vector3):
+        self.get_logger().info(f"CB_OCC ➜ occupancy_state = ({msg.x:.1f}, {msg.y:.1f}, {msg.z:.1f})")
+        self.occupancy=msg
 
     def cb_real(self, msg: Pose):
         # Guardamos última pose real
@@ -26,23 +34,40 @@ class DeadReckoningNav(Node):
         self._last_odom = (p.x, p.y)
 
     def aplicar_velocidad(self, cmds):
+        
+        stop = (   0.30 < self.occupancy.x < 0.60
+                or 0.30 < self.occupancy.y < 0.60
+                or 0.30 < self.occupancy.z < 0.60)
+        self.get_logger().info(
+            f'Distancias → Izq: { self.occupancy.x:.2f} m | '
+            f'Cent: {self.occupancy.y:.2f} m | Der: {self.occupancy.z:.2f} m'
+        )
+        
         for v, w, t in cmds:
             twist = Twist()
             twist.linear.x  = float(v)
             twist.angular.z = float(w)
-            # usa time.time() puro
+            # usamos time.time() puro
             start = time.time()
             end   = start + t
             while time.time() < end:
-                self.pub.publish(twist)
-                rclpy.spin_once(self, timeout_sec=0)
-                time.sleep(0.02)
+                blocked_start = 0
+                if stop:
+                    blocked_start = time.time() # Detengo el tiempo
+                    self.pub.publish(Twist())  # Me detengo si hay un obstáculo
+                else:
+                    self.pub.publish(twist)
+                    rclpy.spin_once(self, timeout_sec=0)
+                    time.sleep(0.02)
+                # Actualizo el tiempo ajustado por la perdida
+            blocked_time = time.time() - blocked_start
+            end += blocked_time
             self.pub.publish(Twist())
             rclpy.spin_once(self, timeout_sec=0)
-        # al terminar todos los cmds, detiene el robot
+        # al terminar todos los cmds, se detiene el robot
         self.pub.publish(Twist())
         
-    def normalize_angle(self, a): #normaliza el angulo entre -pi y pi para no rotar infinitamente
+    def normalize_angle(self, a): #normalizo el angulo entre -pi y pi para no rotar infinitamente
         return (a + math.pi) % (2*math.pi) - math.pi
 
     def mover_robot_a_destino(self, goal_pose):

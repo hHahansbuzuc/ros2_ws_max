@@ -18,7 +18,6 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(kobuki_ros_interfaces REQUIRED)
 
 
 
@@ -33,6 +32,7 @@ install(
     scripts/pose_loader.py
     scripts/data_recorder.py
     scripts/teleop_nav.py
+    scripts/obstacle_detector.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

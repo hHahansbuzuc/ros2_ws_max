@@ -24,5 +24,12 @@
     name="data_recorder"
     output="screen"/>
 
+  <!-- 5) Nodo de control -->
+  <node
+    pkg="lab1"
+    exec="obstacle_detector.py"
+    name="obstacle_detector"
+    output="screen"/>
+
     
 </launch>
